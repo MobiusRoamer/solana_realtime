@@ -2,7 +2,7 @@
   "name": "solana-fee-report",
   "version": "1.0.0",
   "description": "A script to analyze Solana transaction fees and compute units.",
-  "main": "solana-fee-report.js",
+  "main": "solana_fee_report.js",
   "scripts": {
     "start": "node solana-fee-report.js"
   },
