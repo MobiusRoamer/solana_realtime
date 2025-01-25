@@ -1,0 +1,23 @@
+{
+  "name": "solana-fee-report",
+  "version": "1.0.0",
+  "description": "A script to analyze Solana transaction fees and compute units.",
+  "main": "solana-fee-report.js",
+  "scripts": {
+    "start": "node solana-fee-report.js"
+  },
+  "keywords": [
+    "solana",
+    "blockchain",
+    "fee-analysis",
+    "web3"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "@solana/web3.js": "^1.78.0",
+    "axios": "^1.5.0",
+    "minimist": "^1.2.8",
+    "sqlite3": "^5.1.6"
+  }
+}
