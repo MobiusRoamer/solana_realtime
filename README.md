@@ -1,5 +1,5 @@
 
-Solana Fee Report Script
+## Solana Fee Report Script
 
 A Node.js script to analyze Solana transaction fees and compute units. This script fetches blocks from the Solana blockchain, calculates priority fees, and generates reports in either a SQLite3 database or a CSV file.
 
