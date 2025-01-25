@@ -126,13 +126,4 @@ If you find this project useful, consider giving it a ⭐️ on GitHub!
 
 ```
 
----
 
-### **How to Use:**
-1. Copy the above content into a file named `README.md` in your project directory.
-2. Push the file to your GitHub repository.
-3. The README will be displayed on your repository's homepage, providing users with clear instructions and documentation.
-
----
-
-Let me know if you need further assistance!
