@@ -72,33 +72,11 @@ if (isNaN(delay) || delay < 0) {
     process.exit(1);
 }
 
-// Initialize the database or CSV file based on the storage format
-if (storageFormat === "db") {
-    const db = new sqlite3.Database("solana_data.db");
-    db.serialize(() => {
-        db.run(`
-            CREATE TABLE IF NOT EXISTS block_data (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                start_slot INTEGER,
-                end_slot INTEGER,
-                total_transactions INTEGER,
-                average_tps REAL,
-                max_fee_sol REAL,
-                average_fee_sol REAL,
-                median_fee_sol REAL,
-                percentile95_fee_sol REAL,
-                max_cu INTEGER,
-                average_cu REAL,
-                median_cu INTEGER,
-                sol_price_usd REAL
-            )
-        `);
-    });
-} else if (storageFormat === "csv") {
-    // Create or clear the CSV file and write the header
-    const csvHeader = "start_slot,end_slot,total_transactions,average_tps,max_fee_sol,average_fee_sol,median_fee_sol,percentile95_fee_sol,max_cu,average_cu,median_cu,sol_price_usd\n";
-    fs.writeFileSync("solana_data.csv", csvHeader);
-}
+
+// Initialize CSV file (no sqlite3)
+const csvHeader = "start_slot,end_slot,total_transactions,average_tps,max_fee_sol,average_fee_sol,median_fee_sol,max_cu,average_cu,median_cu,sol_price_usd\n";
+//need to delete: percentiles95_fee_sol
+fs.writeFileSync("solana_data.csv", csvHeader); // Creates or overwrites the CSV with headers
 
 // Function to fetch the current Solana price in USD
 async function getSolanaPriceInUSD() {
@@ -134,11 +112,11 @@ function isVotingTransaction(transaction) {
 }
 
 // Function to calculate the nth percentile of an array
-function calculatePercentile(sortedArray, percentile) {
-    if (sortedArray.length === 0) return 0;
-    const index = Math.ceil((percentile / 100) * sortedArray.length) - 1;
-    return sortedArray[Math.max(0, index)];
-}
+function calculatePercentile(sortedArray, percentile) { //delete
+    if (sortedArray.length === 0) return 0; //delete
+    const index = Math.ceil((percentile / 100) * sortedArray.length) - 1; //delete
+    return sortedArray[Math.max(0, index)]; //delete
+} //delete
 
 // Function to print a report for the current batch of blocks
 function printReport(
@@ -149,7 +127,6 @@ function printReport(
     maxFee,
     averageFee,
     medianFee,
-    percentile95Fee,
     maxCU,
     averageCU,
     medianCU,
@@ -161,7 +138,6 @@ function printReport(
     console.log(`Max Fee (SOL): ${maxFee.toFixed(6)} ($${(maxFee * solPriceUSD).toFixed(2)})`);
     console.log(`Average Fee (SOL): ${averageFee.toFixed(6)} ($${(averageFee * solPriceUSD).toFixed(2)})`);
     console.log(`Median Fee (SOL): ${medianFee.toFixed(6)} ($${(medianFee * solPriceUSD).toFixed(2)})`);
-    console.log(`95th Percentile Fee (SOL): ${percentile95Fee.toFixed(6)} ($${(percentile95Fee * solPriceUSD).toFixed(2)})`);
     console.log(`Max Compute Units (CU): ${maxCU}`);
     console.log(`Average Compute Units (CU): ${averageCU.toFixed(2)}`);
     console.log(`Median Compute Units (CU): ${medianCU}`);
@@ -178,50 +154,14 @@ function saveData(
     maxFee,
     averageFee,
     medianFee,
-    percentile95Fee,
     maxCU,
     averageCU,
     medianCU,
     solPriceUSD
 ) {
-    if (storageFormat === "db") {
-        const db = new sqlite3.Database("solana_data.db");
-        db.run(
-            `
-            INSERT INTO block_data (
-                start_slot, end_slot, total_transactions, average_tps,
-                max_fee_sol, average_fee_sol, median_fee_sol, percentile95_fee_sol,
-                max_cu, average_cu, median_cu, sol_price_usd
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `,
-            [
-                startSlot,
-                endSlot,
-                totalTransactions,
-                averageTPS,
-                maxFee,
-                averageFee,
-                medianFee,
-                percentile95Fee,
-                maxCU,
-                averageCU,
-                medianCU,
-                solPriceUSD,
-            ],
-            (err) => {
-                if (err) {
-                    console.error("Error inserting data into database:", err);
-                } else {
-                    console.log(`Data for slots ${startSlot} to ${endSlot} inserted into database.`);
-                }
-                db.close();
-            }
-        );
-    } else if (storageFormat === "csv") {
-        const csvRow = `${startSlot},${endSlot},${totalTransactions},${averageTPS},${maxFee},${averageFee},${medianFee},${percentile95Fee},${maxCU},${averageCU},${medianCU},${solPriceUSD}\n`;
-        fs.appendFileSync("solana_data.csv", csvRow);
-        console.log(`Data for slots ${startSlot} to ${endSlot} appended to CSV file.`);
-    }
+    const csvRow = `${startSlot},${endSlot},${totalTransactions},${averageTPS},${maxFee},${averageFee},${medianFee},${percentile95Fee},${maxCU},${averageCU},${medianCU},${solPriceUSD}\n`;
+    fs.appendFileSync("solana_data.csv", csvRow);
+    console.log(`Data for slots ${startSlot} to ${endSlot} appended to CSV file.`);
 }
 
 // Function to fetch a range of blocks and analyze priority fees
@@ -241,9 +181,13 @@ async function analyzePriorityFees(numSamples, batchSize, delay) {
                 return;
             }
 
-            const priorityFees = [];
+            const priorityFees = []; //delete
             const computeUnits = [];
             let totalNonVotingTransactions = 0;
+            //const successFees = [];
+            //const failedFees = [];
+            //const successComputeUnits = [];
+            //const failedCOmputeUnits = [];
 
             for (let j = 0; j < batchSize; j++) {
                 const slot = latestSlot - i - j;
@@ -252,7 +196,7 @@ async function analyzePriorityFees(numSamples, batchSize, delay) {
                 const block = await connection.getBlock(slot, {
                     maxSupportedTransactionVersion: 0,
                     transactionDetails: "full",
-                    rewards: false,
+                    rewards: false, //Need to fetch rewards data
                 });
 
                 if (!block || !block.transactions) {
@@ -260,19 +204,35 @@ async function analyzePriorityFees(numSamples, batchSize, delay) {
                 } else {
                     block.transactions.forEach((tx) => {
                         if (!isVotingTransaction(tx)) {
+                        //    totalNonVotingTransactions++;
                             const meta = tx.meta;
                             if (meta && meta.fee !== undefined) {
                                 const feeInSOL = meta.fee / LAMPORTS_PER_SOL;
-                                if (feeInSOL > 0) {
-                                    priorityFees.push(feeInSOL);
-                                    totalNonVotingTransactions++;
-                                }
+                                //if (meta.err === null){
+                                //    successFees.push(feeInSOL);
+                                //    totalSuccessTxs++;
+                                //    if(meta.computeUnitsConsumed !== undefined){
+                                //        successComputeUnits.push(meta.computeUnitsComsumed);
+                                //    }
+                                //else {
+                                //    failedFees.push(feeInSOL);
+                                //    totalFailedTxs++;
+                                //    if(meta.computeUnitsConsumed !== undefined){
+                                //        failedConputeUnits.push(meta.computeUnitsConsumed)}
+                                //    }
+                                if (feeInSOL > 0) { //Delete
+                                    priorityFees.push(feeInSOL); //Delete 
+                                    totalNonVotingTransactions++; //Delete
+                                } //delete
                             }
-                            if (meta && meta.computeUnitsConsumed !== undefined) {
-                                computeUnits.push(meta.computeUnitsConsumed);
-                            }
+                            if (meta && meta.computeUnitsConsumed !== undefined) { // delete
+                                computeUnits.push(meta.computeUnitsConsumed); //delete
+                            } //delete
                         }
                     });
+                    //if (block.rewards >0){
+                    //    totalIssuanceRewards += block.rewards.reduce((sum, reward) => sum +(reward.lamports || 0), 0);
+                    //}
                 }
 
                 // Add a delay between block fetches
@@ -286,14 +246,16 @@ async function analyzePriorityFees(numSamples, batchSize, delay) {
                 continue;
             }
 
-            const sortedFees = priorityFees.sort((a, b) => a - b);
+            //const sortedSuccessFees = successFees.sort((a,b) => a - b);
+            //We are leaving out FailedFees for now
+            //const sortedSuccessCUs = successComputeUnits.sort((a,b) => a-b );
+           
             const maxFee = sortedFees[sortedFees.length - 1];
             const averageFee = sortedFees.reduce((sum, fee) => sum + fee, 0) / sortedFees.length;
             const medianFee =
                 sortedFees.length % 2 === 0
                     ? (sortedFees[sortedFees.length / 2 - 1] + sortedFees[sortedFees.length / 2]) / 2
                     : sortedFees[Math.floor(sortedFees.length / 2)];
-            const percentile95Fee = calculatePercentile(sortedFees, 95);
 
             const sortedComputeUnits = computeUnits.sort((a, b) => a - b);
             const maxCU = sortedComputeUnits[sortedComputeUnits.length - 1];
@@ -306,6 +268,8 @@ async function analyzePriorityFees(numSamples, batchSize, delay) {
             const blockTime = 0.4;
             const totalTime = batchSize * blockTime;
             const averageTPS = totalNonVotingTransactions / totalTime;
+            // const issuanceRewards = 
+            //const ComputeUnitPriceSuccess = sortedSuccessFees.reduce((sum, fee) => sum + fee, 0) / sortedSuccessCUs.length;
 
             printReport(
                 batchStartSlot,
@@ -315,7 +279,6 @@ async function analyzePriorityFees(numSamples, batchSize, delay) {
                 maxFee,
                 averageFee,
                 medianFee,
-                percentile95Fee,
                 maxCU,
                 averageCU,
                 medianCU,
@@ -330,7 +293,6 @@ async function analyzePriorityFees(numSamples, batchSize, delay) {
                 maxFee,
                 averageFee,
                 medianFee,
-                percentile95Fee,
                 maxCU,
                 averageCU,
                 medianCU,
