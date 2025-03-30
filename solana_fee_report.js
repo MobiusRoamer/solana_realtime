@@ -1,6 +1,5 @@
 const { Connection, PublicKey, LAMPORTS_PER_SOL } = require("@solana/web3.js");
 const axios = require("axios"); // For making HTTP requests to CoinGecko API
-const sqlite3 = require("sqlite3").verbose(); // For SQLite3 database operations
 const fs = require("fs"); // For CSV file operations
 const minimist = require("minimist"); // For parsing command-line arguments
 
@@ -20,7 +19,7 @@ const args = minimist(process.argv.slice(2), {
         d: "delay",
     },
     default: {
-        storage: "db", // Default to SQLite3 database
+        storage: "csv", // Default to CSV database
         batchSize: 10, // Default batch size is 10 blocks
         delay: 2, // Default delay is 2 seconds
     },
