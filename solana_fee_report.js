@@ -271,7 +271,6 @@ async function analyzePriorityFees(numSamples, batchSize, delay) {
                 console.log(`No priority fees found in the scanned blocks.`);
                 continue;
             }
-            }
 
             
             
