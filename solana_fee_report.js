@@ -196,6 +196,9 @@ async function analyzePriorityFees(numSamples, batchSize, delay) {
             
             const computeUnits = [];
             let totalNonVotingTransactions = 0;
+            let totalSuccessfulTxs=0;
+            let totalFailedTxs = 0;
+            const priorityFees = [];
             const successPriorityFees = [];
             const failedPriorityFees = [];
             const successComputeUnits = [];
@@ -268,10 +271,6 @@ async function analyzePriorityFees(numSamples, batchSize, delay) {
                 console.log(`No priority fees found in the scanned blocks.`);
                 continue;
             }
-
-            if (blockRewards.length === 0) {
-                console.log(`No rewards found in the scanned blocks.`);
-                continue;
             }
 
             
