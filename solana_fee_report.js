@@ -74,7 +74,7 @@ if (isNaN(delay) || delay < 0) {
 
 
 // Initialize CSV file (no sqlite3)
-const csvHeader = "start_slot,end_slot,total_transactions,average_tps,max_fee_sol,average_fee_sol,median_fee_sol,max_cu,average_cu,median_cu,sol_price_usd\n";
+const csvHeader = "start_slot,end_slot,total_transactions,average_tps,max_fee_sol,average_fee_sol,median_fee_sol,max_cu,average_cu,median_cu,cup_success,block_rewards,seigniorage,sol_price_usd\n";
 //need to delete: percentiles95_fee_sol
 fs.writeFileSync("solana_data.csv", csvHeader); // Creates or overwrites the CSV with headers
 
@@ -130,6 +130,10 @@ function printReport(
     maxCU,
     averageCU,
     medianCU,
+    ComputeUnitPrice,
+    ComputeUnitPriceSuccess,
+    blockRewards,
+    seigniorage,
     solPriceUSD
 ) {
     console.log(`\n--- Report for Slots ${startSlot} to ${endSlot} ---`);
@@ -141,6 +145,10 @@ function printReport(
     console.log(`Max Compute Units (CU): ${maxCU}`);
     console.log(`Average Compute Units (CU): ${averageCU.toFixed(2)}`);
     console.log(`Median Compute Units (CU): ${medianCU}`);
+    console.log(`Compute Unit Price of all Tx (SOL): ${ComputeUnitPrice}`);
+    console.log(`Compute Unit Price of Successful Tx (SOL): ${ComputeUnitPriceSuccess}`);
+    console.log(`Block Rewards (SOL): ${blockRewards}`);
+    console.log(`Seigniorage (SOL): ${seigniorage}`);
     console.log(`Solana Price (USD): $${solPriceUSD.toFixed(2)}`);
     console.log("--------------------------------------------\n");
 }
@@ -157,9 +165,13 @@ function saveData(
     maxCU,
     averageCU,
     medianCU,
+    ComputeUnitPrice,
+    ComputeUnitPriceSuccess,
+    blockRewards,
+    seigniorage,
     solPriceUSD
 ) {
-    const csvRow = `${startSlot},${endSlot},${totalTransactions},${averageTPS},${maxFee},${averageFee},${medianFee},${percentile95Fee},${maxCU},${averageCU},${medianCU},${solPriceUSD}\n`;
+    const csvRow = `${startSlot},${endSlot},${totalTransactions},${averageTPS},${maxFee},${averageFee},${medianFee},${maxCU},${averageCU},${medianCU},${ComputeUnitPrice},${ComputeUnitPriceSuccess},${blockRewards},${seigniorage},${solPriceUSD}\n`;
     fs.appendFileSync("solana_data.csv", csvRow);
     console.log(`Data for slots ${startSlot} to ${endSlot} appended to CSV file.`);
 }
@@ -181,13 +193,16 @@ async function analyzePriorityFees(numSamples, batchSize, delay) {
                 return;
             }
 
-            const priorityFees = []; //delete
+            
             const computeUnits = [];
             let totalNonVotingTransactions = 0;
-            //const successFees = [];
-            //const failedFees = [];
-            //const successComputeUnits = [];
-            //const failedCOmputeUnits = [];
+            const successPriorityFees = [];
+            const failedPriorityFees = [];
+            const successComputeUnits = [];
+            const failedComputeUnits = []; 
+            const blockRewards = [];
+            const seigniorage = [];
+
 
             for (let j = 0; j < batchSize; j++) {
                 const slot = latestSlot - i - j;
@@ -196,45 +211,53 @@ async function analyzePriorityFees(numSamples, batchSize, delay) {
                 const block = await connection.getBlock(slot, {
                     maxSupportedTransactionVersion: 0,
                     transactionDetails: "full",
-                    rewards: false, //Need to fetch rewards data
+                    rewards: true, //Need to fetch rewards data
                 });
 
-                if (!block || !block.transactions) {
-                    console.log(`No transactions found in block at slot ${slot}.`);
-                } else {
-                    block.transactions.forEach((tx) => {
-                        if (!isVotingTransaction(tx)) {
-                        //    totalNonVotingTransactions++;
-                            const meta = tx.meta;
-                            if (meta && meta.fee !== undefined) {
-                                const feeInSOL = meta.fee / LAMPORTS_PER_SOL;
-                                //if (meta.err === null){
-                                //    successFees.push(feeInSOL);
-                                //    totalSuccessTxs++;
-                                //    if(meta.computeUnitsConsumed !== undefined){
-                                //        successComputeUnits.push(meta.computeUnitsComsumed);
-                                //    }
-                                //else {
-                                //    failedFees.push(feeInSOL);
-                                //    totalFailedTxs++;
-                                //    if(meta.computeUnitsConsumed !== undefined){
-                                //        failedConputeUnits.push(meta.computeUnitsConsumed)}
-                                //    }
-                                if (feeInSOL > 0) { //Delete
-                                    priorityFees.push(feeInSOL); //Delete 
-                                    totalNonVotingTransactions++; //Delete
-                                } //delete
+                block.transactions.forEach((tx) => {
+                    if (!isVotingTransaction(tx)) {
+                        const meta = tx.meta;
+                        if (meta && meta.fee !== undefined) {
+                            totalNonVotingTransactions++; // Count all non-voting txs
+                            const feeInSOL = meta.fee / LAMPORTS_PER_SOL;
+                            if (feeInSOL > 0) { // Filter for positive fees
+                                priorityFees.push(feeInSOL); // Track all non-voting txs with fee > 0
+                                if (meta.err === null && meta.computeUnitsConsumed !== undefined) {
+                                    // Successful non-voting tx with fee > 0 and CU defined
+                                    successPriorityFees.push(feeInSOL);
+                                    totalSuccessfulTxs++;
+                                    successComputeUnits.push(meta.computeUnitsConsumed); // Fixed typo
+                                } else {
+                                    // Failed non-voting tx with fee > 0 (or no CU for successful)
+                                    failedPriorityFees.push(feeInSOL);
+                                    totalFailedTxs++;
+                                    failedComputeUnits.push(meta.computeUnitsConsumed); 
+                                    
+                                }
+                                if (block.rewards >0 && block.rewards !== undefined){
+                                    block.rewards.forEach((reward) => {
+                                        const rewardAmount = reward.lamports / LAMPORTS_PER_SOL;
+                                        switch (reward.rewardType){
+                                            case 'fee':
+                                            case 'rent':
+                                                blockRewards.push(rewardAmount);
+                                                break;
+                                            case 'vote':
+                                            case 'stake':
+                                                seigniorage.push(rewardAmount);
+                                                break;
+                                            default:
+                                                break;
+                                        }
+                                    }
+                                );
+                                } 
                             }
-                            if (meta && meta.computeUnitsConsumed !== undefined) { // delete
-                                computeUnits.push(meta.computeUnitsConsumed); //delete
-                            } //delete
                         }
-                    });
-                    //if (block.rewards >0){
-                    //    totalIssuanceRewards += block.rewards.reduce((sum, reward) => sum +(reward.lamports || 0), 0);
-                    //}
-                }
-
+                    }
+                });
+    
+            
                 // Add a delay between block fetches
                 if (delay > 0) {
                     await new Promise((resolve) => setTimeout(resolve, delay * 1000));
@@ -242,21 +265,28 @@ async function analyzePriorityFees(numSamples, batchSize, delay) {
             }
 
             if (priorityFees.length === 0) {
-                console.log("No priority fees found in the scanned blocks.");
+                console.log(`No priority fees found in the scanned blocks.`);
                 continue;
             }
 
-            //const sortedSuccessFees = successFees.sort((a,b) => a - b);
-            //We are leaving out FailedFees for now
-            //const sortedSuccessCUs = successComputeUnits.sort((a,b) => a-b );
+            if (blockRewards.length === 0) {
+                console.log(`No rewards found in the scanned blocks.`);
+                continue;
+            }
+
+            
+            
            
+            //Fee Analysis
+            const sortedFees = priorityFees.sort((a,b) => a-b);
             const maxFee = sortedFees[sortedFees.length - 1];
             const averageFee = sortedFees.reduce((sum, fee) => sum + fee, 0) / sortedFees.length;
             const medianFee =
                 sortedFees.length % 2 === 0
                     ? (sortedFees[sortedFees.length / 2 - 1] + sortedFees[sortedFees.length / 2]) / 2
                     : sortedFees[Math.floor(sortedFees.length / 2)];
-
+            
+            //CU analysis
             const sortedComputeUnits = computeUnits.sort((a, b) => a - b);
             const maxCU = sortedComputeUnits[sortedComputeUnits.length - 1];
             const averageCU = computeUnits.reduce((sum, cu) => sum + cu, 0) / computeUnits.length;
@@ -264,12 +294,23 @@ async function analyzePriorityFees(numSamples, batchSize, delay) {
                 computeUnits.length % 2 === 0
                     ? (sortedComputeUnits[computeUnits.length / 2 - 1] + sortedComputeUnits[computeUnits.length / 2]) / 2
                     : sortedComputeUnits[Math.floor(computeUnits.length / 2)];
-
+            
+            //Tx Analysis
             const blockTime = 0.4;
             const totalTime = batchSize * blockTime;
             const averageTPS = totalNonVotingTransactions / totalTime;
-            // const issuanceRewards = 
-            //const ComputeUnitPriceSuccess = sortedSuccessFees.reduce((sum, fee) => sum + fee, 0) / sortedSuccessCUs.length;
+            
+            //Reward Analysis 
+            const sortedBlockRewards = blockRewards.sort ((a,b)=> a-b);
+            const averageBlockRewards = sortedBlockRewards.reduce((sum, reward) => sum + reward, 0)/ sortedBlockRewards.length;
+            const sortedSeigniorage = seigniorage.sort ((a,b) => a-b);
+            const averageSeigniorage = sortedSeigniorage.reduce((sum, seig) => sum + seig, 0 ) / sortedSeigniorage.length;
+            
+            //CUP Analysis
+            const ComputeUnitPrice = sortedFees.reduce((sum, fee) => sum + fee, 0) / sortedComputeUnits.length;
+            const sortedSuccessFees = successPriorityFees.sort((a,b) => a-b);
+            const sortedSuccessCUs = successComputeUnits.sort((a,b)=>a-b);
+            const ComputeUnitPriceSuccess = sortedSuccessFees.reduce((sum, fee) => sum + fee, 0) / sortedSuccessCUs.length;
 
             printReport(
                 batchStartSlot,
@@ -282,6 +323,10 @@ async function analyzePriorityFees(numSamples, batchSize, delay) {
                 maxCU,
                 averageCU,
                 medianCU,
+                averageBlockRewards,
+                averageSeigniorage,
+                ComputeUnitPrice, 
+                ComputeUnitPriceSuccess,
                 solPriceUSD
             );
 
@@ -296,6 +341,10 @@ async function analyzePriorityFees(numSamples, batchSize, delay) {
                 maxCU,
                 averageCU,
                 medianCU,
+                averageBlockRewards,
+                averageSeigniorage,
+                ComputeUnitPrice,
+                ComputeUnitPriceSuccess,
                 solPriceUSD
             );
 
