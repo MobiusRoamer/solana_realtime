@@ -1,6 +1,8 @@
 
 ## Solana Fee Report Script
 
+(https://explorer.solana.com/block/330551202)
+
 A Node.js script to analyze Solana transaction fees and compute units. This script fetches blocks from the Solana blockchain, calculates priority fees, and generates reports in either a SQLite3 database or a CSV file.
 
 ---
@@ -35,7 +37,7 @@ A Node.js script to analyze Solana transaction fees and compute units. This scri
 Run the script with the following command:
 
 ```bash
-node solana-fee-report.js -n <numSamples> -s <storage> -b <batchSize> -d <delay>
+node solana_fee_report.js -n <numSamples> -s <storage> -b <batchSize> -d <delay>
 ```
 
 ### Arguments
@@ -43,7 +45,7 @@ node solana-fee-report.js -n <numSamples> -s <storage> -b <batchSize> -d <delay>
 | Argument       | Description                                                                 | Default Value |
 |----------------|-----------------------------------------------------------------------------|---------------|
 | `-n, --numSamples` | Number of block batches to analyze (e.g., `-n 1000`).                       | **Required**  |
-| `-s, --storage`    | Storage format: `db` for SQLite3 database or `csv` for CSV file.            | `db`          |
+| `-s, --storage`    | Storage format: `db` for SQLite3 database or `csv` for CSV file.            | `csv`         |
 | `-b, --batchSize`  | Number of blocks per batch (1 to 100).                                      | `10`          |
 | `-d, --delay`      | Delay in seconds between block fetches.                                     | `2`           |
 | `-h, --help`       | Show help message and exit.                                                 | N/A           |
@@ -57,12 +59,12 @@ node solana-fee-report.js -n <numSamples> -s <storage> -b <batchSize> -d <delay>
 
 2. Analyze 50 batches of 10 blocks and save to a SQLite3 database with the default 2-second delay:
    ```bash
-   node solana-fee-report.js -n 50 -s db
+   node solana_fee_report.js -n 50 -s db
    ```
 
 3. Analyze 1000 batches of 5 blocks and save to a CSV file with no delay:
    ```bash
-   node solana-fee-report.js -n 1000 -s csv -b 5 -d 0
+   node solana_fee_report.js -n 1000 -s csv -b 5 -d 0
    ```
 
 ---
