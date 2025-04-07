@@ -1,8 +1,3 @@
-const sqlite3 = require("sqlite3").verbose(); // For SQLite3 database operations
-
-// Create a connection to the SQLite3 database
-const db = new sqlite3.Database("solana_data.db");
-
 // Function to process and display data for each set of 10 blocks
 function processBlockData() {
     db.all(

@@ -1,7 +1,7 @@
 const { Connection, PublicKey, LAMPORTS_PER_SOL } = require("@solana/web3.js");
 const axios = require("axios"); // For making HTTP requests to CoinGecko API
 const minimist = require("minimist"); // For parsing command-line arguments
-const Plotly = require("plotly.js-dist");
+const express = require("express");
 
 // Solana RPC endpoint (you can use a public endpoint or your own node)
 const RPC_ENDPOINT = "https://api.mainnet-beta.solana.com";
@@ -11,7 +11,6 @@ const args = minimist(process.argv.slide(2),{
     alias: {
         h: "help",
         n: "numSlots",
-        s: "storage",
         d: "delay",
     },
     default: {
@@ -35,6 +34,7 @@ if (isNaN(numSamples) || numSamples < 1) {
     console.error("Error: Please specify a valid number of slots using -n or --numSamples.");
     process.exit(1);
 }
+
 
 // CoinGecko API endpoint for Solana price in USD
 const COINGECKO_API_URL = "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd";
@@ -60,28 +60,6 @@ async function fetchInflationRate(){
 }
 
 
-// Display help output if -h or --help is provided
-if (args.help) {
-    console.log(`
-Usage: node solana-fee-report.js [options]
-
-Options:
-  -h, --help          Show this help message and exit
-  -n, --numSamples    Number of block batches to analyze (e.g., -n 1000)
-  -s, --storage       Storage format: 'db' for SQLite3 database or 'csv' for CSV file (default: db)
-  -d, --delay         Delay in seconds between block fetches (default: 2)
-
-Example:
-  node solana-fee-report.js -n 1000 -s csv -b 20 -d 5
-`);
-    process.exit(0);
-}
-
-// Validate the number of samples
-if (!args.numSamples || isNaN(args.numSamples)) {
-    console.error("Error: Please specify the number of block batches using -n or --numSamples.");
-    process.exit(1);
-}
 
 const numSamples = parseInt(args.numSamples, 10);
 const storageFormat = args.storage;
@@ -92,13 +70,6 @@ if (storageFormat !== "db" && storageFormat !== "csv") {
     process.exit(1);
 }
 
-
-
-// Initialize CSV file (no sqlite3)
-const csvHeader = "start_slot,end_slot,total_transactions,avg_tps,max_fee_sol,avg_fee_sol,median_fee_sol,max_cu,avg_cu,median_cu,avg_cu_success,cup_success,avg_block_rewards,avg_seigniorage,sol_price_usd\n";
-
-
-fs.writeFileSync("solana_data.csv", csvHeader); // Creates or overwrites the CSV with headers
 
 // Function to fetch the current Solana price in USD
 async function getSolanaPriceInUSD() {

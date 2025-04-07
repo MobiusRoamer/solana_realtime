@@ -46,7 +46,6 @@ node solana_fee_report.js -n <numSamples> -s <storage> -b <batchSize> -d <delay>
 |----------------|-----------------------------------------------------------------------------|---------------|
 | `-n, --numSamples` | Number of block batches to analyze (e.g., `-n 1000`).                       | **Required**  |
 | `-s, --storage`    | Storage format: `db` for SQLite3 database or `csv` for CSV file.            | `csv`         |
-| `-b, --batchSize`  | Number of blocks per batch (1 to 100).                                      | `10`          |
 | `-d, --delay`      | Delay in seconds between block fetches.                                     | `2`           |
 | `-h, --help`       | Show help message and exit.                                                 | N/A           |
 
