@@ -4,11 +4,11 @@ const minimist = require("minimist");
 const express = require("express");
 
 const RPC_ENDPOINT = "https://api.mainnet-beta.solana.com";
-const LAMPORTS_PER_SOL = 1_000_000_000;
+const LAMPORTS_PER_SOL_CONST = 1000000000;
 const COINGECKO_API_URL = "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd";
-const connection = new Connection(RPC_ENDPOINT, "confirmed");
 
-const args = minimist(process.argv.slide(2),{
+
+const args = minimist(process.argv.slice(2),{
     alias: {
         h: "help",
         n: "numBlocks",
@@ -20,7 +20,7 @@ const args = minimist(process.argv.slide(2),{
 });
 if (args.help) {
     console.log(`
-        Usage: node solana_report.js [options]
+        Usage: node solana_realtime.js [options]
         Options:
             -h, --help          Show this help message
             -n, --numBlocks    Number of slots to analyze (required)
@@ -31,8 +31,11 @@ if (args.help) {
 
 const numBlocks = parseInt(args.numBlocks || args.n, 10);
 const delay = parseInt(args.delay || args.d, 10)*1000;
+
+const connection = new Connection(RPC_ENDPOINT, "confirmed");
+
 if (isNaN(numBlocks) || numBlocks < 1) {
-    console.error("Error: Please specify a valid number of slots using -n or --numSamples.");
+    console.error("Error: Please specify a valid number of slots using -n or --numBlocks.");
     process.exit(1);
 }
 
@@ -72,10 +75,10 @@ async function analyzeBlock(slotNumber){
         const block = await connection.getBlock(slotNumber, { 
             maxSupportedTransactionVersion: 0,
             transactionDetails: "full",
-            rewards: true,
+            rewards: false,
         });
-        if (!block) {
-            console.log(`No block data for slot ${currentSlot}. Skipping.`);
+        if (!block || !block.transactions || !Array.isArray(block.transactions)) {
+            console.log(`No block data for slot ${slotNumber}. Skipping.`);
             return null;
         }
         
@@ -87,18 +90,18 @@ async function analyzeBlock(slotNumber){
         let totalComputeUnitsSuccess = 0;
         let txCountSuccess = 0;
 
-        block.transaction.forEach((tx) => {
+        block.transactions.forEach((tx) => {
             if (!isVotingTransaction(tx)) {
                 const meta = tx.meta;
                 if (meta && meta.fee !== undefined) {
-                    const feeInSOL = meta.fee / LAMPORTS_PER_SOL;
+                    const feeInSOL = meta.fee / LAMPORTS_PER_SOL_CONST;
                     const computeUnits = meta.computeUnitsConsumed || 0;
 
                     totalFeesAll += feeInSOL;
                     totalComputeUnitsAll += computeUnits;
                     txCountAll ++;
 
-                    if(meta.err == null){
+                    if(meta.err === null){
                         totalFeesSuccess += feeInSOL;
                         totalComputeUnitsSuccess += computeUnits;
                         txCountSuccess ++;

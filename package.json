@@ -2,7 +2,7 @@
   "name": "solana_realtime",
   "version": "1.0.0",
   "description": "Real time tracker of Solana network security, monetary policy, network activity.",
-  "main": "solana_report.js",
+  "main": "solana_realtime.js",
   "scripts": {
     "start": "node solana_fee_report.js"
   },
@@ -15,8 +15,9 @@
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
-    "@solana/web3.js": "^1.78.0",
-    "axios": "^1.5.0",
+    "@solana/web3.js": "^1.98.0",
+    "axios": "^1.8.4",
+    "express": "^5.1.0",
     "minimist": "^1.2.8",
     "plotly.js-dist": "^3.0.1"
   }
