@@ -8,7 +8,7 @@ const LAMPORTS_PER_SOL_CONST = 1000000000;
 const COINGECKO_API_URL = "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd";
 
 const args = minimist(process.argv.slice(2), {
-    alias: { h: "help", n: "numBlocks", d: "delay" },
+    alias: { h: "help", n: "numBlocks", d: "delay" , s: "startSlot", e: "endSlot"},
     default: { delay: 10 },
 });
 
@@ -19,12 +19,16 @@ if (args.help) {
             -h, --help          Show this help message
             -n, --numBlocks     Number of slots to analyze (required)
             -d, --delay         Delay between slot fetches in seconds (default: 10)
+            -s, --startSlot     Starting slot for historical data
+            -d, --endSlot       Ending slot for historical data
     `);
     process.exit(0);
 }
 
 const numBlocks = parseInt(args.numBlocks || args.n, 10);
 const delay = parseInt(args.delay || args.d, 10) * 1000;
+const startSlot = parseInt(args.startSlot || args.s, 10);
+const endSlot = parseInt(args.endSlot || args.e, 10);
 
 if (isNaN(numBlocks) || numBlocks < 1) {
     console.error("Error: Please specify a valid number of slots using -n or --numBlocks.");
@@ -64,7 +68,7 @@ function isVotingTransaction(transaction) {
     }
 }
 
-async function analyzeBlock(slotNumber, retries = 3, backoff = 1000) {
+async function analyzeBlock(slotNumber, prevSlotTime = null, retries = 3, backoff = 1000) {
     for (let i = 0; i < retries; i++) {
         try {
             console.log(`Fetching block for slot ${slotNumber} (attempt ${i + 1}/${retries})`);
@@ -111,14 +115,29 @@ async function analyzeBlock(slotNumber, retries = 3, backoff = 1000) {
             const avgFeeSuccess = txCountSuccess > 0 ? totalFeesSuccess / txCountSuccess : 0;
             const avgComputeUnitPriceSuccess = totalComputeUnitsSuccess > 0 ? totalFeesSuccess / totalComputeUnitsSuccess : 0;
 
-            return {
-                slot: slotNumber,
-                avgFeeAll,  // Now in lamports
-                avgComputeUnitPriceAll,  // Now in lamports per compute unit
-                avgFeeSuccess,  // Now in lamports
-                avgComputeUnitPriceSuccess,  // Now in lamports per compute unit
-                timestamp: block.blockTime ? new Date(block.blockTime * 1000).toISOString() : new Date().toISOString(),
-            };
+            const blockTime = block.blockTime || (await connection.getBlockTime(slotNumber));
+            if(!blockTime){
+                console.log(`No block time available for slot ${slotNumber}. Using Default TPS.`);
+                return {
+                    slot: slotNumber,
+                    avgFeeAll,  // Now in lamports
+                    avgComputeUnitPriceAll,  // Now in lamports per compute unit
+                    avgFeeSuccess,  // Now in lamports
+                    avgComputeUnitPriceSuccess,  // Now in lamports per compute unit
+                    timestamp: block.blockTime ? new Date(block.blockTime * 1000).toISOString() : new Date().toISOString(),
+                    txCountAll, 
+                    txCountSuccess,
+                };
+                
+            }
+            let tps = 0;
+            if (prevSlotTime !== null){
+                const timeDiff = (blockTime - prevSlotTime);
+                tps = timeDiff > 0 ? txCountAll / timeDiff : txCountAll / 0.4;
+            } else{
+                tps = txCountAll / 0.4;
+            }
+            
         } catch (error) {
             if (error.message.includes("429")) {
                 if (i < retries - 1) {
@@ -152,16 +171,26 @@ async function fetchLatestData() {
             Avg Compute Unit Price (All) = ${data.avgComputeUnitPriceAll.toFixed(6)} lamports/CU,
             Avg Fee (Successful Tx) = ${data.avgFeeSuccess.toFixed(2)} lamports,
             Avg Compute Unit Price (Successful Tx) = ${data.avgComputeUnitPriceSuccess.toFixed(6)} lamports/CU
+            Transaction per Second = ${tps} tx per sec 
             -------------------------------------------------
         `);
+        return data.blockTime;
     }
+    return preBlockTime;
 }
 
 async function initializeData() {
-    console.log("Starting initialization...");
-    let slot = await connection.getSlot();
-    console.log(`Initial slot: ${slot}`);
-    for (let i = 0; i < numBlocks; i++) {
+    if(startSlot && endSlot){
+        if(startSlot >= endSlot){
+            console.error("Error.start slot must be less than end slot.");
+            process.exit(1);
+        }
+        blockData = await fetchHistoricalData(startSlot, endSlot);
+        console.log(`Fetched ${blockData.length} historical samples`);
+    }else if (numBlocks) {
+        let slot = await connection.getSlot();
+        console.log(`Initial slot: ${slot}`);
+        for (let i = 0; i < numBlocks; i++) {
         const data = await analyzeBlock(slot - i);
         if (data) {
             blockData.push(data);
@@ -169,6 +198,11 @@ async function initializeData() {
         await new Promise(resolve => setTimeout(resolve, delay));
     }
     console.log(`Initialized with ${blockData.length} samples`);
+    } else{
+        console.error(`Error: specify either -n for realtime tracking, or -s and -e for historical data.`);
+        process.exit(1);
+    }
+    
 }
 
 app.get("/data", (req, res) => {
@@ -182,10 +216,13 @@ initializeData().then(() => {
         console.log(`Server running at http://localhost:${port}`);
     });
 
-    setInterval(async () => {
-        await fetchLatestData();
-        if (blockData.length > 500) blockData.shift();
-    }, delay);
+    if (!startSlot || !endSlot){
+        let prevBlockTime = blockData.length > 0 ? blockData[blockData.length -1].blockTime: null;
+        setInterval(async()=> {
+            prevBlockTime = await fetchLatestData(prevBlockTime);
+            if (blockData.length > 1000) blockData.shift();
+        }, delay);
+    }
 }).catch((error) => {
     console.error("Initialization failed", error);
     process.exit(1);
