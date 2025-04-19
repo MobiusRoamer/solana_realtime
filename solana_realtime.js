@@ -87,6 +87,8 @@ async function analyzeBlock(slotNumber, prevSlotTime = null, retries = 3, backof
             let totalComputeUnitsAll = 0;
             let txCountAll = 0;
             let totalFeesSuccess = 0;
+            let totalPriorityFeesAll = 0;
+            let totalPrioityFeesSuccess = 0;
             let totalComputeUnitsSuccess = 0;
             let txCountSuccess = 0;
 
@@ -95,14 +97,19 @@ async function analyzeBlock(slotNumber, prevSlotTime = null, retries = 3, backof
                     const meta = tx.meta;
                     if (meta && meta.fee !== undefined) {
                         const feeInLamports = meta.fee;  // Keep in lamports, no division
+                        const sigCount = tx.transaction.signatures ? tx.transaction.signatures.length : 1;
+                        const baseFee = sigCount * 5000;
+                        const priorityFee = feeInLamports - baseFee;
                         const computeUnits = meta.computeUnitsConsumed || 0;
 
                         totalFeesAll += feeInLamports;
+                        totalPriorityFeesAll += priorityFee;
                         totalComputeUnitsAll += computeUnits;
                         txCountAll++;
 
                         if (meta.err === null) {
                             totalFeesSuccess += feeInLamports;
+                            totalPrioityFeesSuccess += priorityFee;
                             totalComputeUnitsSuccess += computeUnits;
                             txCountSuccess++;
                         }
@@ -112,8 +119,8 @@ async function analyzeBlock(slotNumber, prevSlotTime = null, retries = 3, backof
 
             const avgFeeAll = txCountAll > 0 ? totalFeesAll / txCountAll : 0;
             const avgComputeUnitPriceAll = totalComputeUnitsAll > 0 ? totalFeesAll / totalComputeUnitsAll : 0;
-            const avgFeeSuccess = txCountSuccess > 0 ? totalFeesSuccess / txCountSuccess : 0;
-            const avgComputeUnitPriceSuccess = totalComputeUnitsSuccess > 0 ? totalFeesSuccess / totalComputeUnitsSuccess : 0;
+            const avgFeeSuccess = totalPrioityFeesSuccess > 0 ? totalPrioityFeesSuccess / txCountSuccess : 0;
+            const avgComputeUnitPriceSuccess = totalComputeUnitsSuccess > 0 ? totalPrioityFeesSuccess / totalComputeUnitsSuccess : 0;
 
             const blockTime = block.blockTime || (await connection.getBlockTime(slotNumber));
             if(!blockTime){
