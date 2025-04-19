@@ -146,18 +146,14 @@ async function analyzeBlock(slotNumber, prevSlotTime = null, retries = 3, backof
             }
             
         } catch (error) {
-            if (error.message.includes("429")) {
                 if (i < retries - 1) {
                     console.log(`429 Too Many Requests for slot ${slotNumber}. Retrying in ${backoff}ms...`);
                     await new Promise(resolve => setTimeout(resolve, backoff));
                     backoff *= 2;
-                    continue;
-                }
-                console.error(`Error fetching block data for slot ${slotNumber} after ${retries} retries:`, error.message);
             } else {
-                console.error(`Error fetching block data for slot ${slotNumber}:`, error.message);
+                console.error(`Error fetching block data for slot ${slotNumber} after ${retries} retries: ${error.message}`);
+                return null;
             }
-            return null;
         }
     }
 }
