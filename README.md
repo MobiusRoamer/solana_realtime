@@ -1,18 +1,15 @@
 
-## Solana Fee Report Script
+## Solana Congestions Analysis: Fate of the Dropped Transactions
 
 (https://explorer.solana.com/block/330551202)
 
-A Node.js script to track real time Solana metrics.
+Solana does not have a public mempool. This means the networking layer can drop a transaction from the quueue without publicly revealing this censorship before the tx reaches the leader. Then users may retry the service by raising the priority fees if they are willing to pay for moving up the queue. We conduct an analysis cmbining queuing theory with chain data analysis. 
 
 ---
 
 ## Features
 
 - **Priority Fees and CUP**: Tracks Total Fees, and Compute Unit Price for all, and successful transactions, respectively.
-- **Priority Fee Analysis**: Calculate max, average, median, and 95th percentile fees.
-- **Compute Unit Analysis**: Calculate max, average, and median compute units.
-- **Storage Options**: Save results to a SQLite3 database or a CSV file.
 - **Customizable**: Control the number of blocks, batch size, and delay between fetches.
 
 ---
